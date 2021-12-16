@@ -36,9 +36,9 @@ int main() {
 
     cout << "building a graph\n";
 
-    const auto N = points.size();
-    Point start_point(0, 0, "", 0, 0);
-    points.push_back(start_point);
+    int N = (int) points.size();
+    Point fantom_point(0, N, "", 0, 0);
+    points.push_back(fantom_point);
 
     // building a graph
     vector<vector<pair<int, double>>> GRAPH(N + 1);
@@ -79,8 +79,8 @@ int main() {
     // Dijkstra's ALGORITHM
     set<pair<double, int>> results;
 
-    map<Point*, Point*> came_from;
-    came_from[&start_point] = nullptr;
+    map<Point*, pair<Point*, double>> came_from;
+    came_from[&fantom_point] = make_pair(nullptr, 0);
 
     const int INF = 5000;
 
@@ -89,8 +89,6 @@ int main() {
 
     set<pair<double, int>> not_used;  // queue (time, index)
     not_used.insert(make_pair(0, N));
-
-    double time_fix = 0;  // will be used at transfer points
 
     while (!not_used.empty()) {
         // pop the first elem in a queue
@@ -101,37 +99,49 @@ int main() {
             int next = neighbour.first;
             double to_next = neighbour.second;
 
-            bool flag_B = false;
+            bool visited = false;
+            for (auto i : came_from) {
+                if (i.second.first != nullptr and i.first->index == current and i.second.first->index == next) {
+                    visited = true;
+                    break;
+                }
+            }
 
-            if (points[next].name == end_name) {  // next is B
-                flag_B = true;
-                if (current < next)
-                    to_next += points[next].from_prev / 2;
-                else
-                    to_next += points[current].from_prev / 2;
+            if (!visited) {
+                bool flag_B = false;
 
-            } else if (points[current].name == points[next].name and points[next].name != start_name)  // transfer
-                to_next += time_fix;
+                if (points[next].name == end_name) {
+                    flag_B = true;
+                    if (current < next)
+                        to_next += points[next].from_prev / 2;
+                    else
+                        to_next += points[current].from_prev / 2;
+                } else if (points[current].name == points[next].name and points[next].name != start_name)
+                    to_next += came_from.find(&points[current])->second.second; // transfer
 
-            // time fix recalculation
-            if (current < next)
-                time_fix = points[next].from_prev / 2;
-            else
-                time_fix = points[current].from_prev / 2;
+                // time fix recalculation
+                double time_fix = 0;
+                if (points[current].name != points[next].name) {
+                    if (current < next)
+                        time_fix = points[next].from_prev / 2;
+                    else
+                        time_fix = points[current].from_prev / 2;
+                }
 
-            // if moving to next is reasonable
-            if (total_cost[current] + to_next < total_cost[next]) {
-                came_from[&points[next]] = &points[current];
+                // if moving to next is reasonable
+                if (total_cost[current] + to_next < total_cost[next]) {
+                    came_from[&points[next]] = make_pair(&points[current], time_fix);
 
-                not_used.erase(make_pair(total_cost[next], next));
+                    not_used.erase(make_pair(total_cost[next], next));
 
-                total_cost[next] = total_cost[current] + to_next;
-                auto pair = make_pair(total_cost[next], next);
+                    total_cost[next] = total_cost[current] + to_next;
+                    auto pair = make_pair(total_cost[next], next);
 
-                if (!flag_B)
-                    not_used.insert(pair);
-                else
-                    results.insert(pair);
+                    if (!flag_B)
+                        not_used.insert(pair);
+                    else
+                        results.insert(pair);
+                }
             }
         }
     }
@@ -142,7 +152,7 @@ int main() {
     vector<Point*> PATH;
     auto current = &points[finish];
     while (current != &points[N]) {
-        current = came_from[current];
+        current = came_from[current].first;
         if (current == &points[N]) break;
         PATH.push_back(current);
     }
@@ -154,14 +164,14 @@ int main() {
     bool begin = true;
     for (auto i : PATH) {
         if (!begin and i->route != prev_route)
-            cout << "(transfer) -> ";
+            cout << "transfer -> ";
         else
             cout << i->name;
         cout << " (bus No. " << i->route << ") \n";
         prev_route = i->route;
         begin = false;
     }
-    cout << points[finish].name << " (end)\n";
+    cout << points[finish].name << " (get off)\n";
 
     return 0;
 }
